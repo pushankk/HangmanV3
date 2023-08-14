@@ -19,7 +19,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 class HangmanAPI(object):
-    def __init__(self, access_token=None, session=None, timeout=None, train_dict):
+    def __init__(self, access_token=None, session=None, timeout=None):
         self.hangman_url = self.determine_hangman_url()
         self.access_token = access_token
         self.session = session or requests.Session()
@@ -29,8 +29,7 @@ class HangmanAPI(object):
         self.guessed = set()
 
         full_dictionary_location = "words_250000_train.txt"
-        #self.full_dictionary = self.build_dictionary(full_dictionary_location)
-        self.full_dictionary = train_dict
+        self.full_dictionary = self.build_dictionary(full_dictionary_location)
         self.full_dictionary_common_letter_sorted = collections.Counter("".join(self.full_dictionary)).most_common()
 
         self.current_dictionary = []
