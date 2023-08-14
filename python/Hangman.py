@@ -74,6 +74,9 @@ class HangmanAPI(object):
         #clean_word = word[::2]
         clean_word = word
 
+        if len(self.guessed_letters) == 0:
+            self.guessed_letters = list(set(''.join(word.replace("_", ""))))
+
         # a list of incorrect guesses to update the ngrams
         self.incorrect_guesses = list(set(self.guessed_letters) - set(word))
 

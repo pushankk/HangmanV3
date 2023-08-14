@@ -36,11 +36,10 @@ if __name__ == "__main__":
             removed_char_set.add(char_to_remove)
         test_list.append((original_word, word, removed_char_set))
 
-        print(test_list)
-
     hangman = HangmanAPI(train_dict=full_dictionary)
     success_count = 0
     for test in test_list:
+        print(f"Starting test : {test}")
         hangman.reset()
         correct_word = test[0]
         current_word = test[1]
@@ -61,9 +60,9 @@ if __name__ == "__main__":
 
         if success:
             success_count += 1
-            print("Successful")
+            print(f"**Successful**, correct_word:{correct_word}, final_word:{current_word}")
         else:
-            print("Failed")
+            print(f">> Failed, correct_word:{correct_word}, final_word:{current_word}")
 
     success_rate = success_count / len(test_list) * 100.0;
     print(f"Success rate:{success_rate}")
