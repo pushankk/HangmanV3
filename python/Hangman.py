@@ -19,8 +19,8 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 class HangmanAPI(object):
-    def __init__(self, access_token=None, session=None, timeout=None):
-        self.hangman_url = self.determine_hangman_url()
+    def __init__(self, access_token=None, session=None, timeout=None, train_dict=None):
+        #self.hangman_url = self.determine_hangman_url()
         self.access_token = access_token
         self.session = session or requests.Session()
         self.timeout = timeout
@@ -29,7 +29,8 @@ class HangmanAPI(object):
         self.guessed = set()
 
         full_dictionary_location = "words_250000_train.txt"
-        self.full_dictionary = self.build_dictionary(full_dictionary_location)
+        #self.full_dictionary = self.build_dictionary(full_dictionary_location)
+        self.full_dictionary = train_dict
         self.full_dictionary_common_letter_sorted = collections.Counter("".join(self.full_dictionary)).most_common()
 
         self.current_dictionary = []
@@ -70,7 +71,8 @@ class HangmanAPI(object):
         ################################################
 
         # clean the word so that we strip away the space characters
-        clean_word = word[::2]
+        #clean_word = word[::2]
+        clean_word = word
 
         # a list of incorrect guesses to update the ngrams
         self.incorrect_guesses = list(set(self.guessed_letters) - set(word))
@@ -543,6 +545,11 @@ class HangmanAPI(object):
         full_dictionary = text_file.read().splitlines()
         text_file.close()
         return full_dictionary
+
+    def reset(self):
+        # reset guessed letters to empty set and current plausible dictionary to the full dictionary
+        self.guessed_letters = []
+        self.current_dictionary = self.full_dictionary
 
     def start_game(self, practice=True, verbose=True):
         # reset guessed letters to empty set and current plausible dictionary to the full dictionary
