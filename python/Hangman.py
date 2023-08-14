@@ -35,11 +35,11 @@ class HangmanAPI(object):
         self.current_dictionary = []
 
         # this stores all the unique letters from the full dictionary in sorted order
-        self.letter_set = sorted(set("".join(self.full_dictionary)))
+        self.letter_list = sorted(set("".join(self.full_dictionary)))
 
         # create a list called probabilities filled with zeros
         # length of this list is determined by the number of elements in the letter_set variable.
-        self.probabilities = [0] * len(self.letter_set)
+        self.probabilities = [0] * len(self.letter_list)
 
         self.unigram, self.bigram, self.trigram, self.fourgram, self.fivegram = self.build_ngram_models(
             self.full_dictionary)
@@ -81,7 +81,7 @@ class HangmanAPI(object):
             self.reoptimize_ngrams()
 
         # reseting the probabilities to zero from the last guess
-        self.probabilities = [0] * len(self.letter_set)
+        self.probabilities = [0] * len(self.letter_list)
 
         # run through ngram function
         return self.fivegram_probability(clean_word)
@@ -154,10 +154,10 @@ class HangmanAPI(object):
         # the output provides the probabilities for each letter, which will be utilized in the subsequent stage.
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_set)
+        probs = [0] * len(self.letter_list)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_set)
+        letter_count = [0] * len(self.letter_list)
 
         # traverse the word and find patterns that have four consecutive letters where one of them is blank
         for i in range(len(word) - 4):
@@ -175,28 +175,23 @@ class HangmanAPI(object):
                 anchor_letter4 = word[i + 3]
 
                 # calculate occurences of "anchor_letter1 anchor_letter2 blank" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter]
-                        letter_count[j] += \
-                        self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter]
+                        letter_count[j] += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter]
 
             # case 2: "eg word: xyz_w "
-            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[
-                i + 4] != '_':
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[i + 4] != '_':
                 anchor_letter1 = word[i]
                 anchor_letter2 = word[i + 1]
                 anchor_letter3 = word[i + 2]
                 anchor_letter4 = word[i + 4]
 
                 # calculate occurences of "anchor_letter1 blank anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
-                    if self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][
-                        anchor_letter4] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][
-                            anchor_letter4]
-                        letter_count[j] += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][
-                            anchor_letter4]
+                for j, letter in enumerate(self.letter_list):
+                    if self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][anchor_letter4] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][anchor_letter4]
+                        letter_count[j] += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][anchor_letter4]
 
             # case 3: "eg word: xy_zw "
             elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_' and word[
@@ -207,7 +202,7 @@ class HangmanAPI(object):
                 anchor_letter4 = word[i + 4]
 
                 # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fivegram[anchor_letter1][anchor_letter2][letter][anchor_letter3][
                         anchor_letter4] > 0 and letter not in self.guessed_letters:
                         total_count += self.fivegram[anchor_letter1][anchor_letter2][letter][anchor_letter3][
@@ -224,7 +219,7 @@ class HangmanAPI(object):
                 anchor_letter4 = word[i + 4]
 
                 # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fivegram[anchor_letter1][letter][anchor_letter2][anchor_letter3][
                         anchor_letter4] > 0 and letter not in self.guessed_letters:
                         total_count += self.fivegram[anchor_letter1][letter][anchor_letter2][anchor_letter3][
@@ -241,7 +236,7 @@ class HangmanAPI(object):
                 anchor_letter4 = word[i + 4]
 
                 # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fivegram[letter][anchor_letter1][anchor_letter2][anchor_letter3][
                         anchor_letter4] > 0 and letter not in self.guessed_letters:
                         total_count += self.fivegram[letter][anchor_letter1][anchor_letter2][anchor_letter3][
@@ -251,7 +246,7 @@ class HangmanAPI(object):
 
         # calculate the probabilities of each letter
         if total_count > 0:
-            for i in range(len(self.letter_set)):
+            for i in range(len(self.letter_list)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities between fivegram and fourgram
@@ -283,10 +278,10 @@ class HangmanAPI(object):
         # the output provides the probabilities for each letter, which will be utilized in the next stage.
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_set)
+        probs = [0] * len(self.letter_list)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_set)
+        letter_count = [0] * len(self.letter_list)
 
         # calculates the probabilities of each letter in a word based on its context using a four-gram model.
         # It considers different cases based on the positions of underscores (_) in the word and updates the letter probabilities accordingly.
@@ -304,7 +299,7 @@ class HangmanAPI(object):
                 anchor_letter3 = word[i + 2]
 
                 # calculate occurences of "anchor_letter1 anchor_letter2 blank" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fourgram[anchor_letter1][anchor_letter2][anchor_letter3][
                         letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.fourgram[anchor_letter1][anchor_letter2][anchor_letter3][letter]
@@ -317,7 +312,7 @@ class HangmanAPI(object):
                 anchor_letter3 = word[i + 3]
 
                 # calculate occurences of "anchor_letter1 blank anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fourgram[anchor_letter1][anchor_letter2][letter][
                         anchor_letter3] > 0 and letter not in self.guessed_letters:
                         total_count += self.fourgram[anchor_letter1][anchor_letter2][letter][anchor_letter3]
@@ -330,7 +325,7 @@ class HangmanAPI(object):
                 anchor_letter3 = word[i + 3]
 
                 # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fourgram[anchor_letter1][letter][anchor_letter2][
                         anchor_letter3] > 0 and letter not in self.guessed_letters:
                         total_count += self.fourgram[anchor_letter1][letter][anchor_letter2][anchor_letter3]
@@ -343,7 +338,7 @@ class HangmanAPI(object):
                 anchor_letter3 = word[i + 3]
 
                 # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.fourgram[letter][anchor_letter1][anchor_letter2][
                         anchor_letter3] > 0 and letter not in self.guessed_letters:
                         total_count += self.fourgram[letter][anchor_letter1][anchor_letter2][anchor_letter3]
@@ -351,7 +346,7 @@ class HangmanAPI(object):
 
         # calculate the probabilities of each letter
         if total_count > 0:
-            for i in range(len(self.letter_set)):
+            for i in range(len(self.letter_list)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities between trigram and bigram
@@ -375,10 +370,10 @@ class HangmanAPI(object):
         # the output provides the probabilities for each letter, which will be utilized in the next stage.
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_set)
+        probs = [0] * len(self.letter_list)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_set)
+        letter_count = [0] * len(self.letter_list)
 
         # traverse the word and find patterns that have three consecutive letters where one of them is blank
         for i in range(len(word) - 2):
@@ -389,7 +384,7 @@ class HangmanAPI(object):
                 anchor_letter2 = word[i + 1]
 
                 # calculate occurences of "anchor_letter1 anchor_letter2 blank" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.trigram[anchor_letter1][anchor_letter2][letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.trigram[anchor_letter1][anchor_letter2][letter]
                         letter_count[j] += self.trigram[anchor_letter1][anchor_letter2][letter]
@@ -400,7 +395,7 @@ class HangmanAPI(object):
                 anchor_letter2 = word[i + 2]
 
                 # calculate occurences of "anchor_letter1 blank anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.trigram[anchor_letter1][letter][anchor_letter2] > 0 and letter not in self.guessed_letters:
                         total_count += self.trigram[anchor_letter1][letter][anchor_letter2]
                         letter_count[j] += self.trigram[anchor_letter1][letter][anchor_letter2]
@@ -411,14 +406,14 @@ class HangmanAPI(object):
                 anchor_letter2 = word[i + 2]
 
                 # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.trigram[letter][anchor_letter1][anchor_letter2] > 0 and letter not in self.guessed_letters:
                         total_count += self.trigram[letter][anchor_letter1][anchor_letter2]
                         letter_count[j] += self.trigram[letter][anchor_letter1][anchor_letter2]
 
         # calculate the probabilities of each letter
         if total_count > 0:
-            for i in range(len(self.letter_set)):
+            for i in range(len(self.letter_list)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities between trigram and bigram
@@ -442,10 +437,10 @@ class HangmanAPI(object):
         # the output provides the probabilities for each letter, which will be used in the next stage.
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_set)
+        probs = [0] * len(self.letter_list)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_set)
+        letter_count = [0] * len(self.letter_list)
 
         # traverse the word and find either patterns of "letter blank" or "blank letter"
         for i in range(len(word) - 1):
@@ -454,7 +449,7 @@ class HangmanAPI(object):
                 anchor_letter = word[i]
 
                 # calculate occurences of "anchor_letter blank" and each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.bigram[len(word)][anchor_letter][letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.bigram[len(word)][anchor_letter][letter]
                         letter_count[j] += self.bigram[len(word)][anchor_letter][letter]
@@ -464,14 +459,14 @@ class HangmanAPI(object):
                 anchor_letter = word[i + 1]
 
                 # calculate occurences of "blank anchor_letter" and each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.bigram[len(word)][letter][anchor_letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.bigram[len(word)][letter][anchor_letter]
                         letter_count[j] += self.bigram[len(word)][letter][anchor_letter]
 
         # calculate the probabilities of each letter
         if total_count > 0:
-            for i in range(len(self.letter_set)):
+            for i in range(len(self.letter_list)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities between bigram and unigram
@@ -488,24 +483,24 @@ class HangmanAPI(object):
         # The output provides the letter with the highest overall probability.
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_set)
+        probs = [0] * len(self.letter_list)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_set)
+        letter_count = [0] * len(self.letter_list)
 
         # traverse the word and find blank spaces
         for i in range(len(word)):
             if word[i] == '_':
 
                 # calculate occurences of pattern and each letter not guessed yet
-                for j, letter in enumerate(self.letter_set):
+                for j, letter in enumerate(self.letter_list):
                     if self.unigram[len(word)][letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.unigram[len(word)][letter]
                         letter_count[j] += self.unigram[len(word)][letter]
 
         # calculate the probabilities of each letter appearing
         if total_count > 0:
-            for i in range(len(self.letter_set)):
+            for i in range(len(self.letter_list)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities
@@ -513,7 +508,7 @@ class HangmanAPI(object):
             self.probabilities[i] = p + probs[i] * (0.05)
 
         # adjust probabilities so they sum to one
-        final_probs = [0] * len(self.letter_set)
+        final_probs = [0] * len(self.letter_list)
         if sum(self.probabilities) > 0:
             for i in range(len(self.probabilities)):
                 final_probs[i] = self.probabilities[i] / sum(self.probabilities)
@@ -523,14 +518,14 @@ class HangmanAPI(object):
         # finding letter with highest probability
         max_prob = 0
         guess_letter = ''
-        for i, letter in enumerate(self.letter_set):
+        for i, letter in enumerate(self.letter_list):
             if self.probabilities[i] > max_prob:
                 max_prob = self.probabilities[i]
                 guess_letter = letter
 
         # if no letter chosen from above, pick a random one (extra weight on vowels)
         if guess_letter == '':
-            letters = self.letter_set.copy()
+            letters = self.letter_list.copy()
             random.shuffle(letters)
             letters_shuffled = ['e', 'a', 'i', 'o', 'u'] + letters
             for letter in letters_shuffled:
