@@ -2,7 +2,7 @@ import random
 
 from Hangman import HangmanAPI
 
-guess_count = 5
+games_count = 50
 removal_percent = 0.6
 
 def remove_char_from_word(word, char_set):
@@ -18,7 +18,7 @@ if __name__ == "__main__":
     text_file.close()
 
     chosen_words_list = []
-    for i in range(guess_count):
+    for i in range(games_count):
         chosen_word = random.choice(full_dictionary)
         chosen_words_list.append(chosen_word)
         full_dictionary.remove(chosen_word)
@@ -39,6 +39,7 @@ if __name__ == "__main__":
         print(test_list)
 
     hangman = HangmanAPI(train_dict=full_dictionary)
+    success_count = 0
     for test in test_list:
         hangman.reset()
         correct_word = test[0]
@@ -59,9 +60,14 @@ if __name__ == "__main__":
 
 
         if success:
+            success_count += 1
             print("Successful")
         else:
             print("Failed")
+
+    success_rate = success_count / len(test_list) * 100.0;
+    print(f"Success rate:{success_rate}")
+
 
 
 
