@@ -42,7 +42,7 @@ class HangmanAPI(object):
         # length of this list is determined by the number of elements in the letter_set variable.
         self.probabilities = [0] * len(self.letter_list)
 
-        self.unigram, self.bigram, self.trigram, self.fourgram, self.fivegram = self.build_ngram_models(
+        self.unigram, self.bigram, self.trigram, self.fourgram, self.fivegram, self.sixgram, self.sevengram, self.eighthgram = self.build_ngram_models(
             self.full_dictionary)
 
     @staticmethod
@@ -65,38 +65,32 @@ class HangmanAPI(object):
         return link
 
     def guess(self, word):  # word input example: "_ p p _ e "
+        '''
+        Given a word with either correctly gussed letters or blanks, this function
+        returns the best guess for the next letter based on the n-grams
+        '''
 
-        ################################################
-        ## Replace with your own "guess" function here #
-        ################################################
-
-        # clean the word so that we strip away the space characters
-        #clean_word = word[::2]
-        clean_word = word
-
-        if len(self.guessed_letters) == 0:
-            self.guessed_letters = list(set(''.join(word.replace("_", ""))))
-
-        # a list of incorrect guesses to update the ngrams
+        # keep track of incorrect guesses to update the n-grams
         self.incorrect_guesses = list(set(self.guessed_letters) - set(word))
 
-        # reconfiguring only if the last guess was incorrect.
-        # this ensures that the analysis adapts and updates based on the user's feedback and the game's progress.
-        if len(self.guessed_letters) > 0 and self.guessed_letters[-1] in self.incorrect_guesses:
-            self.reoptimize_ngrams()
+        # only recalibrate if last guess was incorrect and running low on guesses
+        if len(self.guessed_letters) > 0 and self.guessed_letters[
+            -1] in self.incorrect_guesses and self.tries_remaining <= 3:
+            self.recalibrate_n_grams()
 
-        # reseting the probabilities to zero from the last guess
-        self.probabilities = [0] * len(self.letter_list)
+        # clear out probabilities from last guess
+        self.probabilities = [0] * len(self.letter_set)
 
-        # run through ngram function
-        return self.fivegram_probability(clean_word)
+        # clean the word so that we strip away the space characters
+        # replace "_" with "." as "." indicates any character in regular expressions
+        clean_word = word[::2]
 
     def build_ngram_models(self, dictionary):
-
-        # create a nested dictionary that stores the occurrences of letter sequences ranging from 1 to 5 characters in length.
-        # the nested dictionary will have an additional level to account for the length of each word in unigrams and bigrams.
-        # for the unigram level, consider only the unique letters within each word.
-
+        '''
+        build nested dictionary containing occurences for n (1-5) sequences of letters
+        unigrams and bigrams have an extra level for length of the word
+        for unigram, take only unique letters within each word
+        '''
         unigram = collections.defaultdict(lambda: collections.defaultdict(int))
         bigram = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int)))
         trigram = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int)))
@@ -104,433 +98,1042 @@ class HangmanAPI(object):
             lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int))))
         fivegram = collections.defaultdict(lambda: collections.defaultdict(
             lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int)))))
+        sixgram = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(
+            lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(int))))))
+        sevengram = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(
+            lambda: collections.defaultdict(lambda: collections.defaultdict(
+                lambda: collections.defaultdict(lambda: collections.defaultdict(int)))))))
+        eightgram = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(
+            lambda: collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(
+                lambda: collections.defaultdict(lambda: collections.defaultdict(int))))))))
 
-        # iterating through each word in the dictionary
-        # count the occurrences of letter sequences in words from the dictionary and update the n-gram models accordingly.
+        # go through each word in the dictionary
         for word in dictionary:
-            # check each letter in the dictionary and update the ngram
-            for i in range(len(word) - 4):
-                # We exclude the last four letters of the word because it is searching for patterns of
-                # four consecutive letters with a blank in the fifth position. Since the last four letters
-                # cannot form such a pattern, there is no need to check them, resulting in improved efficiency
-                # and focusing on the relevant parts of the word.
-
+            # check each letter in the dictionary and update the n-gram
+            for i in range(len(word) - 7):
                 bigram[len(word)][word[i]][word[i + 1]] += 1
                 trigram[word[i]][word[i + 1]][word[i + 2]] += 1
                 fourgram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]] += 1
                 fivegram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]] += 1
+                sixgram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]] += 1
+                sevengram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]][word[i + 6]] += 1
+                eightgram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]][word[i + 6]][
+                    word[i + 7]] += 1
+            i = len(word) - 7
 
-            i = len(word) - 4
-
-            # fill rest of the ngrams for words very small words and complete coverage
+            # fill out the rest of the n-grams for words too short
             if len(word) == 2:
                 bigram[len(word)][word[0]][word[1]] += 1
             elif len(word) == 3:
                 bigram[len(word)][word[0]][word[1]] += 1
                 bigram[len(word)][word[1]][word[2]] += 1
                 trigram[word[0]][word[1]][word[2]] += 1
-            # fill out rest of the fourgrams
-            elif len(word) >= 4:
+
+            # fill out rest of the (1-4)-grams
+            elif len(word) == 4:
+                bigram[len(word)][word[0]][word[1]] += 1
+                bigram[len(word)][word[1]][word[2]] += 1
+                bigram[len(word)][word[2]][word[3]] += 1
+                trigram[word[0]][word[1]][word[2]] += 1
+                trigram[word[1]][word[2]][word[3]] += 1
+                fourgram[word[0]][word[1]][word[2]][word[3]] += 1
+            # fill out rest of the (1-5)-grams
+            elif len(word) == 5:
+                bigram[len(word)][word[0]][word[1]] += 1
+                bigram[len(word)][word[1]][word[2]] += 1
+                bigram[len(word)][word[2]][word[3]] += 1
+                bigram[len(word)][word[3]][word[4]] += 1
+                trigram[word[0]][word[1]][word[2]] += 1
+                trigram[word[1]][word[2]][word[3]] += 1
+                trigram[word[2]][word[3]][word[4]] += 1
+                fourgram[word[0]][word[1]][word[2]][word[3]] += 1
+                fourgram[word[1]][word[2]][word[3]][word[4]] += 1
+                fivegram[word[0]][word[1]][word[2]][word[3]][word[4]] += 1
+
+            elif len(word) == 6:
+                bigram[len(word)][word[0]][word[1]] += 1
+                bigram[len(word)][word[1]][word[2]] += 1
+                bigram[len(word)][word[2]][word[3]] += 1
+                bigram[len(word)][word[3]][word[4]] += 1
+                bigram[len(word)][word[4]][word[5]] += 1
+                trigram[word[0]][word[1]][word[2]] += 1
+                trigram[word[1]][word[2]][word[3]] += 1
+                trigram[word[2]][word[3]][word[4]] += 1
+                trigram[word[3]][word[4]][word[5]] += 1
+                fourgram[word[0]][word[1]][word[2]][word[3]] += 1
+                fourgram[word[1]][word[2]][word[3]][word[4]] += 1
+                fourgram[word[2]][word[3]][word[4]][word[5]] += 1
+                fivegram[word[0]][word[1]][word[2]][word[3]][word[4]] += 1
+                fivegram[word[1]][word[2]][word[3]][word[4]][word[5]] += 1
+                sixgram[word[0]][word[1]][word[2]][word[3]][word[4]][word[5]] += 1
+
+            elif len(word) >= 7:
                 bigram[len(word)][word[i]][word[i + 1]] += 1
                 bigram[len(word)][word[i + 1]][word[i + 2]] += 1
                 bigram[len(word)][word[i + 2]][word[i + 3]] += 1
+                bigram[len(word)][word[i + 3]][word[i + 4]] += 1
+                bigram[len(word)][word[i + 4]][word[i + 5]] += 1
+                bigram[len(word)][word[i + 5]][word[i + 6]] += 1
                 trigram[word[i]][word[i + 1]][word[i + 2]] += 1
                 trigram[word[i + 1]][word[i + 2]][word[i + 3]] += 1
+                trigram[word[i + 2]][word[i + 3]][word[i + 4]] += 1
+                trigram[word[i + 3]][word[i + 4]][word[i + 5]] += 1
+                trigram[word[i + 4]][word[i + 5]][word[i + 6]] += 1
                 fourgram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]] += 1
+                fourgram[word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]] += 1
+                fourgram[word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]] += 1
+                fourgram[word[i + 3]][word[i + 4]][word[i + 5]][word[i + 6]] += 1
+                fivegram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]] += 1
+                fivegram[word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]] += 1
+                fivegram[word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]][word[i + 6]] += 1
+                sixgram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]] += 1
+                sixgram[word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]][word[i + 6]] += 1
+                sevengram[word[i]][word[i + 1]][word[i + 2]][word[i + 3]][word[i + 4]][word[i + 5]][word[i + 6]] += 1
 
             # fill out unigrams
             for letter in set(word):
                 unigram[len(word)][letter] += 1
 
-        return unigram, bigram, trigram, fourgram, fivegram
+        return unigram, bigram, trigram, fourgram, fivegram, sixgram, sevengram, eightgram
 
-    def reoptimize_ngrams(self):
+    def recalibrate_n_grams(self):
+        '''
+        re-tabulates the n-grams after eliminating any incorrectly guessed letters
+        updates the dictionary to remove words containing incorrectly guessed letters
+        '''
+        # updates the dictionary to remove words containing incorrectly guessed letters
+        new_dict = [word for word in self.full_dictionary if not set(word).intersection(set(self.incorrect_guesses))]
+        self.unigram, self.bigram, self.trigram, self.fourgram, self.fivegram, self.sixgram, self.sevengram, self.eightgram = self.build_ngram_models(
+            new_dict)
 
-        # regulates the ngrams after removing any incorrectly guessed letters
-        # updates the dictionary to eliminate words containing incorrectly guessed letters
-        new_dictionary = [word for word in self.full_dictionary if
-                          not set(word).intersection(set(self.incorrect_guesses))]
-        self.unigram, self.bigram, self.trigram, self.fourgram, self.fivegram = self.build_ngram_models(new_dictionary)
-
-    def fivegram_probability(self, word):
-
-        # given an input word in a clean format with no spaces and placeholders ('_') for unknown letters,
-        # the process utilizes five-grams to determine the likelihood of a specific letter appearing in a five-letter sequence for a word.
-        # the output provides the probabilities for each letter, which will be utilized in the subsequent stage.
+    def eightgram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses eight-gram to calculate the probability of a certain letter appearing in an eight-letter sequence for a word of given length
+        Output: probabilities for each letter to be used in next level
+        '''
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_list)
+        probs = [0] * len(self.letter_set)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_list)
+        letter_count = [0] * len(self.letter_set)
 
-        # traverse the word and find patterns that have four consecutive letters where one of them is blank
-        for i in range(len(word) - 4):
-            # We exclude the last four letters of the word because it is searching for patterns of
-            # four consecutive letters with a blank in the fifth position. Since the last four letters
-            # cannot form such a pattern, there is no need to check them, resulting in improved efficiency
-            # and focusing on the relevant parts of the word.
+        # traverse the word and find patterns that have three consecutive letters where one of them is blank
+        for i in range(len(word) - 7):
 
-            # case 1: "eg word:  xyzw_ "
+            # case 1: "letter letter letter letter letter letter letter blank"
             if word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
-                i + 4] == '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 1]
-                anchor_letter3 = word[i + 2]
-                anchor_letter4 = word[i + 3]
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_' and word[i + 7] == '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                # anchor_letter_8 = word[i + 7]
 
-                # calculate occurences of "anchor_letter1 anchor_letter2 blank" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter]
-                        letter_count[j] += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][anchor_letter4][letter]
+                # calculate occurences of case 1 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if \
+                    self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        anchor_letter_6][anchor_letter_7][
+                        letter] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][anchor_letter_7][
+                            letter]
+                        letter_count[j] += \
+                            self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                                anchor_letter_5][anchor_letter_6][anchor_letter_7][
+                                letter]
 
-            # case 2: "eg word: xyz_w "
-            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[i + 4] != '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 1]
-                anchor_letter3 = word[i + 2]
-                anchor_letter4 = word[i + 4]
+            # case 2: "letter letter letter letter letter letter blank letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] == '_' and word[i + 7] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                # anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
 
-                # calculate occurences of "anchor_letter1 blank anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][anchor_letter4] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][anchor_letter4]
-                        letter_count[j] += self.fivegram[anchor_letter1][anchor_letter2][anchor_letter3][letter][anchor_letter4]
+                # calculate occurences of case 2 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if \
+                    self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        anchor_letter_6][letter][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][letter][
+                            anchor_letter_8]
+                        letter_count[j] += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][letter][
+                            anchor_letter_8]
 
-            # case 3: "eg word: xy_zw "
+            # case 3: "letter letter letter letter letter blank letter letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] == '_' and word[i + 6] != '_' and word[i + 7] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                # anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
+
+                # calculate occurences of case 3 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if \
+                    self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        letter][anchor_letter_7][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][letter][anchor_letter_7][
+                            anchor_letter_8]
+                        letter_count[j] += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][letter][anchor_letter_7][
+                            anchor_letter_8]
+
+            # case 4: "letter letter letter letter blank letter letter letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] == '_' and word[i + 5] != '_' and word[i + 6] != '_' and word[i + 7] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                # anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
+
+                # calculate occurences of case 4 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                        anchor_letter_6][anchor_letter_7][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                            anchor_letter_6][anchor_letter_7][
+                            anchor_letter_8]
+                        letter_count[j] += \
+                        self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                            anchor_letter_6][anchor_letter_7][
+                            anchor_letter_8]
+
+            # case 5: "letter letter letter blank letter letter letter letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_' and word[i + 7] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                # anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
+
+                # calculate occurences of case 5 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_5][
+                        anchor_letter_6][anchor_letter_7][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                            self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
+                        letter_count[j] += \
+                            self.eightgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
+
+            # case 6: "letter letter blank letter letter letter letter letter"
             elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_' and word[
-                i + 4] != '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 1]
-                anchor_letter3 = word[i + 3]
-                anchor_letter4 = word[i + 4]
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_' and word[i + 7] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                # anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
 
-                # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fivegram[anchor_letter1][anchor_letter2][letter][anchor_letter3][
-                        anchor_letter4] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fivegram[anchor_letter1][anchor_letter2][letter][anchor_letter3][
-                            anchor_letter4]
-                        letter_count[j] += self.fivegram[anchor_letter1][anchor_letter2][letter][anchor_letter3][
-                            anchor_letter4]
+                # calculate occurences of case 6 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.eightgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_4][anchor_letter_5][
+                        anchor_letter_6][anchor_letter_7][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                            self.eightgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_4][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
+                        letter_count[j] += \
+                            self.eightgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_4][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
 
-            # case 4: "eg word: x_yzw"
+            # case 7: "letter blank letter letter letter letter letter letter"
             elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
-                i + 4] != '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 2]
-                anchor_letter3 = word[i + 3]
-                anchor_letter4 = word[i + 4]
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_' and word[i + 7] != '_':
+                anchor_letter_1 = word[i]
+                # anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
 
-                # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fivegram[anchor_letter1][letter][anchor_letter2][anchor_letter3][
-                        anchor_letter4] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fivegram[anchor_letter1][letter][anchor_letter2][anchor_letter3][
-                            anchor_letter4]
-                        letter_count[j] += self.fivegram[anchor_letter1][letter][anchor_letter2][anchor_letter3][
-                            anchor_letter4]
+                # calculate occurences of case 7 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.eightgram[anchor_letter_1][letter][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        anchor_letter_6][anchor_letter_7][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                            self.eightgram[anchor_letter_1][letter][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
+                        letter_count[j] += \
+                            self.eightgram[anchor_letter_1][letter][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
 
-            # case 5: "eg word: _xyzw"
+            # case 8: "blank letter letter letter letter letter letter letter"
             elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
-                i + 4] != '_':
-                anchor_letter1 = word[i + 1]
-                anchor_letter2 = word[i + 2]
-                anchor_letter3 = word[i + 3]
-                anchor_letter4 = word[i + 4]
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_' and word[i + 7] != '_':
+                # anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+                anchor_letter_8 = word[i + 7]
 
-                # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fivegram[letter][anchor_letter1][anchor_letter2][anchor_letter3][
-                        anchor_letter4] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fivegram[letter][anchor_letter1][anchor_letter2][anchor_letter3][
-                            anchor_letter4]
-                        letter_count[j] += self.fivegram[letter][anchor_letter1][anchor_letter2][anchor_letter3][
-                            anchor_letter4]
+                # calculate occurences of case 8 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.eightgram[letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        anchor_letter_6][anchor_letter_7][
+                        anchor_letter_8] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                            self.eightgram[letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
+                        letter_count[j] += \
+                            self.eightgram[letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                                anchor_letter_6][anchor_letter_7][
+                                anchor_letter_8]
 
-        # calculate the probabilities of each letter
+        # calculate the probabilities of each letter appearing
         if total_count > 0:
-            for i in range(len(self.letter_list)):
+            for i in range(len(self.letter_set)):
                 probs[i] = letter_count[i] / total_count
 
-        # interpolate probabilities between fivegram and fourgram
-        """
-       The step of multiplying each probability in probs by 0.40 and adding it to
-       the corresponding probability in self.probabilities depicts interpolation.
-       It is performed to combine the probabilities obtained from the fivegram level with the
-       existing probabilities from the previous levels (trigram and bigram).This interpolation
-       helps to balance the influence of higher-level ngrams (trigrams and bigrams) with the
-       more specific information provided by the fivegram model. The method assigns a higher weight
-       to the probabilities derived from the fivegram model. The factor of 0.40 determines the
-       weight assigned to the fivegram probabilities, while the remaining weight (0.60) is assigned
-       to the existing probabilities in self.probabilities. Overall, the interpolation step helps in
-       combining the information from different ngram models to make more accurate predictions about
-       the likelihood of specific letters appearing in the target blank space, considering both local
-       and global patterns in the word.
-        """
-
+        # interpolate probabilities between eightgram and sevengram
         for i, p in enumerate(self.probabilities):
-            self.probabilities[i] = p + probs[i] * (0.40)
+            self.probabilities[i] = p + probs[i] * (0.7)
 
-        # go for the next level
-        return self.fourgram_probability(word)
+        # run the next level down
+        return self.sevengram_probs(word)
 
-    def fourgram_probability(self, word):
-
-        # given a word in a clean format without spaces and placeholders ('_') for unknown letters,
-        # the process utilizes four-grams to determine the probabilities of specific letters appearing in a four-letter sequence for a word.
-        # the output provides the probabilities for each letter, which will be utilized in the next stage.
+    def sevengram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses tri-gram to calculate the probability of a certain letter appearing in a seven-letter sequence for a word of given length
+        Output: probabilities for each letter to be used in next level
+        '''
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_list)
+        probs = [0] * len(self.letter_set)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_list)
+        letter_count = [0] * len(self.letter_set)
 
-        # calculates the probabilities of each letter in a word based on its context using a four-gram model.
-        # It considers different cases based on the positions of underscores (_) in the word and updates the letter probabilities accordingly.
-        # The probabilities are then interpolated with the existing probabilities from lower-level n-gram models (trigram and bigram)
-        # to balance the influence of higher-level n-grams. The function then proceeds to the next level of the n-gram model to further
-        # calculate the probabilities.
+        # traverse the word and find patterns that have three consecutive letters where one of them is blank
+        for i in range(len(word) - 6):
+
+            # case 1: "letter letter letter letter letter letter blank"
+            if word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] == '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                # anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 1 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if \
+                    self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        anchor_letter_6][letter] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][letter]
+                        letter_count[j] += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][letter]
+
+            # case 2: "letter letter letter letter letter blank letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] == '_' and word[i + 6] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                # anchor_letter_6 = word[i+5]
+                anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 2 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if \
+                    self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        letter][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][letter][anchor_letter_6]
+                        letter_count[j] += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][letter][anchor_letter_6]
+
+            # case 3: letter letter letter letter blank letter letter
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] == '_' and word[i + 5] != '_' and word[i + 6] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                # anchor_letter_5 = word[i+4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 3 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                            anchor_letter_5][anchor_letter_6]
+                        letter_count[j] += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                            anchor_letter_5][anchor_letter_6]
+
+            # case 4: letter letter letter blank letter letter letter
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                # anchor_letter_4 = word[i+3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 4 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+                        letter_count[j] += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+
+            # case 5: letter letter blank letter letter letter letter
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                # anchor_letter_3 = word[i+2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 5 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+                        letter_count[j] += \
+                        self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+            # case 6: letter blank letter letter letter letter letter
+            elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_':
+                anchor_letter_1 = word[i]
+                # anchor_letter_2 = word[i+1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 6 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sevengram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+                        letter_count[j] += \
+                        self.sevengram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+
+            # case 7: blank letter letter letter letter letter letter
+            elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_':
+                # anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+                anchor_letter_6 = word[i + 5]
+                anchor_letter_7 = word[i + 6]
+
+                # calculate occurences of case 7 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sevengram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sevengram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+                        letter_count[j] += \
+                        self.sevengram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6]
+
+        # calculate the probabilities of each letter appearing
+        if total_count > 0:
+            for i in range(len(self.letter_set)):
+                probs[i] = letter_count[i] / total_count
+
+        # interpolate probabilities between sevengram and sixgram
+        for i, p in enumerate(self.probabilities):
+            self.probabilities[i] = p + probs[i] * (0.6)
+
+            # run the next level down
+        return self.sixgram_probs(word)
+
+    def sixgram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses tri-gram to calculate the probability of a certain letter appearing in a six-letter sequence for a word of given length
+        Output: probabilities for each letter to be used in next level
+        '''
+
+        # vector of probabilities for each letter
+        probs = [0] * len(self.letter_set)
+
+        total_count = 0
+        letter_count = [0] * len(self.letter_set)
+
+        # traverse the word and find patterns that have three consecutive letters where one of them is blank
+        for i in range(len(word) - 5):
+
+            # case 1: "letter letter letter letter letter blank"
+            if word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] == '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 4]
+
+                # calculate occurences of case 1 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if \
+                    self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
+                        letter] > 0 and letter not in self.guessed_letters:
+                        total_count += self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][letter]
+                        letter_count[j] += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5][letter]
+
+            # case 2: "letter letter letter letter blank letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] == '_' and word[i + 5] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+                anchor_letter_5 = word[i + 5]
+
+                # calculate occurences of case 2 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                        anchor_letter_5] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                            anchor_letter_5]
+                        letter_count[j] += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
+                            anchor_letter_5]
+
+            # case 3: letter letter letter blank letter letter
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[
+                i + 4] != '_' and word[i + 5] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 4]
+                anchor_letter_5 = word[i + 5]
+
+                # calculate occurences of case 3 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
+                        anchor_letter_5] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
+                            anchor_letter_5]
+                        letter_count[j] += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
+                            anchor_letter_5]
+
+            # case 4: letter letter blank letter letter letter
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 3]
+                anchor_letter_4 = word[i + 4]
+                anchor_letter_5 = word[i + 5]
+
+                # calculate occurences of case 4 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sixgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5]
+                        letter_count[j] += \
+                        self.sixgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5]
+
+            # case 5: letter blank letter letter letter letter
+            elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 2]
+                anchor_letter_3 = word[i + 3]
+                anchor_letter_4 = word[i + 4]
+                anchor_letter_5 = word[i + 5]
+
+                # calculate occurences of case 5 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sixgram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sixgram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5]
+                        letter_count[j] += \
+                        self.sixgram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5]
+            # case 6: blank letter letter letter letter letter
+            elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_' and word[i + 5] != '_':
+                anchor_letter_1 = word[i + 1]
+                anchor_letter_2 = word[i + 2]
+                anchor_letter_3 = word[i + 3]
+                anchor_letter_4 = word[i + 4]
+                anchor_letter_5 = word[i + 5]
+
+                # calculate occurences of case 6 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.sixgram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.sixgram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5]
+                        letter_count[j] += \
+                        self.sixgram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                            anchor_letter_5]
+
+        # calculate the probabilities of each letter appearing
+        if total_count > 0:
+            for i in range(len(self.letter_set)):
+                probs[i] = letter_count[i] / total_count
+
+        # interpolate probabilities between sevengram and sixgram
+        for i, p in enumerate(self.probabilities):
+            self.probabilities[i] = p + probs[i] * (0.5)
+
+        # run the next level down
+        return self.fivegram_probs(word)
+
+    def fivegram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses tri-gram to calculate the probability of a certain letter appearing in a five-letter sequence for a word of given length
+        Output: probabilities for each letter to be used in next level
+        '''
+
+        # vector of probabilities for each letter
+        probs = [0] * len(self.letter_set)
+
+        total_count = 0
+        letter_count = [0] * len(self.letter_set)
+
+        # traverse the word and find patterns that have three consecutive letters where one of them is blank
+        for i in range(len(word) - 4):
+
+            # case 1: "letter letter letter letter blank"
+            if word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] == '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 3]
+
+                # calculate occurences of case 1 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fivegram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                        letter] > 0 and letter not in self.guessed_letters:
+                        total_count += \
+                        self.fivegram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter]
+                        letter_count[j] += \
+                        self.fivegram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter]
+
+            # case 2: "letter letter letter blank letter"
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[
+                i + 4] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
+                anchor_letter_4 = word[i + 4]
+
+                # calculate occurences of case 2 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fivegram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][
+                        anchor_letter_4] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fivegram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][
+                            anchor_letter_4]
+                        letter_count[j] += self.fivegram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][
+                            anchor_letter_4]
+
+            # case 3: letter letter blank letter letter
+            elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_' and word[
+                i + 4] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 3]
+                anchor_letter_4 = word[i + 4]
+
+                # calculate occurences of case 3 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fivegram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][
+                        anchor_letter_4] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fivegram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][
+                            anchor_letter_4]
+                        letter_count[j] += self.fivegram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][
+                            anchor_letter_4]
+
+            # case 4: letter blank letter letter letter
+            elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_':
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 2]
+                anchor_letter_3 = word[i + 3]
+                anchor_letter_4 = word[i + 4]
+
+                # calculate occurences of case 4 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fivegram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][
+                        anchor_letter_4] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fivegram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][
+                            anchor_letter_4]
+                        letter_count[j] += self.fivegram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][
+                            anchor_letter_4]
+
+            # case 5: blank letter letter letter letter
+            elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
+                i + 4] != '_':
+                anchor_letter_1 = word[i + 1]
+                anchor_letter_2 = word[i + 2]
+                anchor_letter_3 = word[i + 3]
+                anchor_letter_4 = word[i + 4]
+
+                # calculate occurences of case 5 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fivegram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][
+                        anchor_letter_4] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fivegram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][
+                            anchor_letter_4]
+                        letter_count[j] += self.fivegram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][
+                            anchor_letter_4]
+
+        # calculate the probabilities of each letter appearing
+        if total_count > 0:
+            for i in range(len(self.letter_set)):
+                probs[i] = letter_count[i] / total_count
+
+        # interpolate probabilities between trigram and bigram
+        for i, p in enumerate(self.probabilities):
+            self.probabilities[i] = p + probs[i] * (0.4)
+
+        # run the next level down
+        return self.fourgram_probs(word)
+
+    def fourgram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses tri-gram to calculate the probability of a certain letter appearing in a four-letter sequence for a word of given length
+        Output: probabilities for each letter to be used in next level
+        '''
+
+        # vector of probabilities for each letter
+        probs = [0] * len(self.letter_set)
+
+        total_count = 0
+        letter_count = [0] * len(self.letter_set)
 
         # traverse the word and find patterns that have three consecutive letters where one of them is blank
         for i in range(len(word) - 3):
 
-            # case 1: "eg word: abc_"
+            # case 1: "letter letter letter blank"
             if word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 1]
-                anchor_letter3 = word[i + 2]
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 2]
 
-                # calculate occurences of "anchor_letter1 anchor_letter2 blank" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fourgram[anchor_letter1][anchor_letter2][anchor_letter3][
+                # calculate occurences of case 1 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fourgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][
                         letter] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fourgram[anchor_letter1][anchor_letter2][anchor_letter3][letter]
-                        letter_count[j] += self.fourgram[anchor_letter1][anchor_letter2][anchor_letter3][letter]
+                        total_count += self.fourgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter]
+                        letter_count[j] += self.fourgram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter]
 
-            # case 2:  "eg word: ab_c"
+            # case 2: "letter letter blank letter"
             elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 1]
-                anchor_letter3 = word[i + 3]
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
+                anchor_letter_3 = word[i + 3]
 
-                # calculate occurences of "anchor_letter1 blank anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fourgram[anchor_letter1][anchor_letter2][letter][
-                        anchor_letter3] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fourgram[anchor_letter1][anchor_letter2][letter][anchor_letter3]
-                        letter_count[j] += self.fourgram[anchor_letter1][anchor_letter2][letter][anchor_letter3]
+                # calculate occurences of case 2 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fourgram[anchor_letter_1][anchor_letter_2][letter][
+                        anchor_letter_3] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fourgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3]
+                        letter_count[j] += self.fourgram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3]
 
-            # case 3: "eg word: a_bc"
+            # case 3: letter blank letter letter
             elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_' and word[i + 3] != '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 2]
-                anchor_letter3 = word[i + 3]
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 2]
+                anchor_letter_3 = word[i + 3]
 
-                # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fourgram[anchor_letter1][letter][anchor_letter2][
-                        anchor_letter3] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fourgram[anchor_letter1][letter][anchor_letter2][anchor_letter3]
-                        letter_count[j] += self.fourgram[anchor_letter1][letter][anchor_letter2][anchor_letter3]
+                # calculate occurences of case 3 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fourgram[anchor_letter_1][letter][anchor_letter_2][
+                        anchor_letter_3] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fourgram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3]
+                        letter_count[j] += self.fourgram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3]
 
-            # case 4:  "eg word: _abc"
+            # case 4: blank letter letter letter
             elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_':
-                anchor_letter1 = word[i + 1]
-                anchor_letter2 = word[i + 2]
-                anchor_letter3 = word[i + 3]
+                anchor_letter_1 = word[i + 1]
+                anchor_letter_2 = word[i + 2]
+                anchor_letter_3 = word[i + 3]
 
-                # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.fourgram[letter][anchor_letter1][anchor_letter2][
-                        anchor_letter3] > 0 and letter not in self.guessed_letters:
-                        total_count += self.fourgram[letter][anchor_letter1][anchor_letter2][anchor_letter3]
-                        letter_count[j] += self.fourgram[letter][anchor_letter1][anchor_letter2][anchor_letter3]
+                # calculate occurences of case 4 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.fourgram[letter][anchor_letter_1][anchor_letter_2][
+                        anchor_letter_3] > 0 and letter not in self.guessed_letters:
+                        total_count += self.fourgram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3]
+                        letter_count[j] += self.fourgram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3]
 
-        # calculate the probabilities of each letter
+        # calculate the probabilities of each letter appearing
         if total_count > 0:
-            for i in range(len(self.letter_list)):
+            for i in range(len(self.letter_set)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities between trigram and bigram
-
-        """
-        Multiply each probability in probs by 0.25 and add it to the corresponding probability in self.probabilities.
-        This interpolation step combines the probabilities obtained from the trigram model with the existing
-        probabilities from the previous levels (trigram and bigram). It balances the influence of higher-level
-        ngrams with the more specific information provided by the fourgram model.
-        """
         for i, p in enumerate(self.probabilities):
             self.probabilities[i] = p + probs[i] * (0.25)
 
-        # go for the next level
-        return self.trigram_probability(word)
+        return self.trigram_probs(word)
 
-    def trigram_probability(self, word):
-
-        # given a word in a clean format without spaces and placeholders ('_') for unknown letters,
-        # the process utilizes tri-grams to determine the probabilities of specific letters appearing in a three-letter sequence for a word.
-        # the output provides the probabilities for each letter, which will be utilized in the next stage.
+    def trigram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses tri-gram to calculate the probability of a certain letter appearing in a three-letter sequence for a word of given length
+        Output: probabilities for each letter to be used in next level
+        '''
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_list)
+        probs = [0] * len(self.letter_set)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_list)
+        letter_count = [0] * len(self.letter_set)
 
         # traverse the word and find patterns that have three consecutive letters where one of them is blank
         for i in range(len(word) - 2):
 
-            # case 1: "eg word: ab_"
+            # case 1: "letter letter blank"
             if word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 1]
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 1]
 
-                # calculate occurences of "anchor_letter1 anchor_letter2 blank" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.trigram[anchor_letter1][anchor_letter2][letter] > 0 and letter not in self.guessed_letters:
-                        total_count += self.trigram[anchor_letter1][anchor_letter2][letter]
-                        letter_count[j] += self.trigram[anchor_letter1][anchor_letter2][letter]
+                # calculate occurences of case 1 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.trigram[anchor_letter_1][anchor_letter_2][
+                        letter] > 0 and letter not in self.guessed_letters:
+                        total_count += self.trigram[anchor_letter_1][anchor_letter_2][letter]
+                        letter_count[j] += self.trigram[anchor_letter_1][anchor_letter_2][letter]
 
-            # case 2: "eg word: a_b"
+            # case 2: "letter blank letter"
             elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_':
-                anchor_letter1 = word[i]
-                anchor_letter2 = word[i + 2]
+                anchor_letter_1 = word[i]
+                anchor_letter_2 = word[i + 2]
 
-                # calculate occurences of "anchor_letter1 blank anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.trigram[anchor_letter1][letter][anchor_letter2] > 0 and letter not in self.guessed_letters:
-                        total_count += self.trigram[anchor_letter1][letter][anchor_letter2]
-                        letter_count[j] += self.trigram[anchor_letter1][letter][anchor_letter2]
+                # calculate occurences of case 2 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.trigram[anchor_letter_1][letter][
+                        anchor_letter_2] > 0 and letter not in self.guessed_letters:
+                        total_count += self.trigram[anchor_letter_1][letter][anchor_letter_2]
+                        letter_count[j] += self.trigram[anchor_letter_1][letter][anchor_letter_2]
 
-            # case 3: "eg word: _ab"
+            # case 3: blank letter letter
             elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_':
-                anchor_letter1 = word[i + 1]
-                anchor_letter2 = word[i + 2]
+                anchor_letter_1 = word[i + 1]
+                anchor_letter_2 = word[i + 2]
 
-                # calculate occurences of "blank anchor_letter1 anchor_letter2" and for each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
-                    if self.trigram[letter][anchor_letter1][anchor_letter2] > 0 and letter not in self.guessed_letters:
-                        total_count += self.trigram[letter][anchor_letter1][anchor_letter2]
-                        letter_count[j] += self.trigram[letter][anchor_letter1][anchor_letter2]
+                # calculate occurences of case 3 and for each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
+                    if self.trigram[letter][anchor_letter_1][
+                        anchor_letter_2] > 0 and letter not in self.guessed_letters:
+                        total_count += self.trigram[letter][anchor_letter_1][anchor_letter_2]
+                        letter_count[j] += self.trigram[letter][anchor_letter_1][anchor_letter_2]
 
-        # calculate the probabilities of each letter
+        # calculate the probabilities of each letter appearing
         if total_count > 0:
-            for i in range(len(self.letter_list)):
+            for i in range(len(self.letter_set)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities between trigram and bigram
-
-        """
-        Multiply each probability in probs by 0.20 and add it to the corresponding probability in self.probabilities.
-        This interpolation step combines the probabilities obtained from the trigram model with the existing
-        probabilities from the previous levels. It balances the influence of higher-level
-        ngrams with the more specific information provided by the trigram model.
-        """
         for i, p in enumerate(self.probabilities):
-            self.probabilities[i] = p + probs[i] * (0.20)
+            self.probabilities[i] = p + probs[i] * (0.2)
 
-        # go for the next level
-        return self.bigram_probability(word)
+        # run the next level down
+        return self.bigram_probs(word)
 
-    def bigram_probability(self, word):
-
-        # given a word in a clean format without spaces and placeholders ('_') for unknown letters,
-        # the process utilizes bi-grams to determine the probabilities of specific letters appearing in a two-letter sequence for a word.
-        # the output provides the probabilities for each letter, which will be used in the next stage.
+    def bigram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses bi-gram to calculate the probability of a certain letter appearing in a two-letter sequence for a word of given length
+              updates the probabilities set in trigram_probs
+        Output: probabilities for each letter to be used in next level
+        '''
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_list)
+        probs = [0] * len(self.letter_set)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_list)
+        letter_count = [0] * len(self.letter_set)
 
         # traverse the word and find either patterns of "letter blank" or "blank letter"
         for i in range(len(word) - 1):
-            # case 1: "eg word: a_"
+            # case 1: "letter blank"
             if word[i] != '_' and word[i + 1] == '_':
                 anchor_letter = word[i]
 
-                # calculate occurences of "anchor_letter blank" and each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
+                # calculate occurences of case 1 and each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
                     if self.bigram[len(word)][anchor_letter][letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.bigram[len(word)][anchor_letter][letter]
                         letter_count[j] += self.bigram[len(word)][anchor_letter][letter]
 
-            # case 2: "eg word: _a"
+            # case 2: "blank letter"
             elif word[i] == '_' and word[i + 1] != '_':
                 anchor_letter = word[i + 1]
 
-                # calculate occurences of "blank anchor_letter" and each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
+                # calculate occurences of case 2 and each letter not guessed yet
+                for j, letter in enumerate(self.letter_set):
                     if self.bigram[len(word)][letter][anchor_letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.bigram[len(word)][letter][anchor_letter]
                         letter_count[j] += self.bigram[len(word)][letter][anchor_letter]
 
-        # calculate the probabilities of each letter
+        # calculate the probabilities of each letter appearing
         if total_count > 0:
-            for i in range(len(self.letter_list)):
+            for i in range(len(self.letter_set)):
                 probs[i] = letter_count[i] / total_count
 
-        # interpolate probabilities between bigram and unigram
+        # interpolate probabilities between trigram and bigram
         for i, p in enumerate(self.probabilities):
-            self.probabilities[i] = p + probs[i] * (0.10)
+            self.probabilities[i] = p + probs[i] * (0.1)
 
         # return letter associated with highest probability
-        return self.unigram_probability(word)
+        return self.unigram_probs(word)
 
-    def unigram_probability(self, word):
-
-        # given a word in a clean format without spaces and placeholders ('_') for unknown letters,
-        # the process utilizes unigrams to calculate the probabilities of specific letters appearing in any blank space.
-        # The output provides the letter with the highest overall probability.
+    def unigram_probs(self, word):
+        '''
+        Input: the word in the "clean" format with no spaces and a '_' if letter has not been guessed
+        Flow: uses unigram to calculate the probability of a certain letter appearing in a any blank space
+              updates the probabilities set in bigram_probs
+        Output: letter with the overall highest probability
+        '''
 
         # vector of probabilities for each letter
-        probs = [0] * len(self.letter_list)
+        probs = [0] * len(self.letter_set)
 
         total_count = 0
-        letter_count = [0] * len(self.letter_list)
+        letter_count = [0] * len(self.letter_set)
 
         # traverse the word and find blank spaces
         for i in range(len(word)):
+            # case 1: "letter blank"
             if word[i] == '_':
 
                 # calculate occurences of pattern and each letter not guessed yet
-                for j, letter in enumerate(self.letter_list):
+                for j, letter in enumerate(self.letter_set):
                     if self.unigram[len(word)][letter] > 0 and letter not in self.guessed_letters:
                         total_count += self.unigram[len(word)][letter]
                         letter_count[j] += self.unigram[len(word)][letter]
 
         # calculate the probabilities of each letter appearing
         if total_count > 0:
-            for i in range(len(self.letter_list)):
+            for i in range(len(self.letter_set)):
                 probs[i] = letter_count[i] / total_count
 
         # interpolate probabilities
         for i, p in enumerate(self.probabilities):
             self.probabilities[i] = p + probs[i] * (0.05)
 
-        # adjust probabilities so they sum to one
-        final_probs = [0] * len(self.letter_list)
+        # self.probabilities = probs ## edited code
+
+        # adjust probabilities so they sum to one (not necessary but looks better)
+        final_probs = [0] * len(self.letter_set)
         if sum(self.probabilities) > 0:
             for i in range(len(self.probabilities)):
                 final_probs[i] = self.probabilities[i] / sum(self.probabilities)
 
         self.probabilities = final_probs
 
-        # finding letter with highest probability
+        # find letter with largest probability
         max_prob = 0
         guess_letter = ''
-        for i, letter in enumerate(self.letter_list):
+        for i, letter in enumerate(self.letter_set):
             if self.probabilities[i] > max_prob:
                 max_prob = self.probabilities[i]
                 guess_letter = letter
 
         # if no letter chosen from above, pick a random one (extra weight on vowels)
         if guess_letter == '':
-            letters = self.letter_list.copy()
+            letters = self.letter_set.copy()
             random.shuffle(letters)
             letters_shuffled = ['e', 'a', 'i', 'o', 'u'] + letters
             for letter in letters_shuffled:
