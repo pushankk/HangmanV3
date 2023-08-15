@@ -503,13 +503,13 @@ class HangmanAPI(object):
                 for j, letter in enumerate(self.letter_list):
                     if \
                     self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][anchor_letter_5][
-                        letter][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        letter][anchor_letter_7] > 0 and letter not in self.guessed_letters:
                         total_count += \
                         self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][letter][anchor_letter_6]
+                            anchor_letter_5][letter][anchor_letter_7]
                         letter_count[j] += \
                         self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][letter][anchor_letter_6]
+                            anchor_letter_5][letter][anchor_letter_7]
 
             # case 3: letter letter letter letter blank letter letter
             elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
@@ -525,13 +525,13 @@ class HangmanAPI(object):
                 # calculate occurences of case 3 and for each letter not guessed yet
                 for j, letter in enumerate(self.letter_list):
                     if self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
-                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                        anchor_letter_6][anchor_letter_7] > 0 and letter not in self.guessed_letters:
                         total_count += \
                         self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
-                            anchor_letter_5][anchor_letter_6]
+                            anchor_letter_6][anchor_letter_7]
                         letter_count[j] += \
                         self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][letter][
-                            anchor_letter_5][anchor_letter_6]
+                            anchor_letter_6][anchor_letter_7]
 
             # case 4: letter letter letter blank letter letter letter
             elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] == '_' and word[
@@ -546,14 +546,14 @@ class HangmanAPI(object):
 
                 # calculate occurences of case 4 and for each letter not guessed yet
                 for j, letter in enumerate(self.letter_list):
-                    if self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
-                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                    if self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_5][
+                        anchor_letter_6][anchor_letter_7] > 0 and letter not in self.guessed_letters:
                         total_count += \
-                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_5][
+                            anchor_letter_6][anchor_letter_7]
                         letter_count[j] += \
-                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[anchor_letter_1][anchor_letter_2][anchor_letter_3][letter][anchor_letter_5][
+                            anchor_letter_6][anchor_letter_7]
 
             # case 5: letter letter blank letter letter letter letter
             elif word[i] != '_' and word[i + 1] != '_' and word[i + 2] == '_' and word[i + 3] != '_' and word[
@@ -568,14 +568,14 @@ class HangmanAPI(object):
 
                 # calculate occurences of case 5 and for each letter not guessed yet
                 for j, letter in enumerate(self.letter_list):
-                    if self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
-                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                    if self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6][anchor_letter_7] > 0 and letter not in self.guessed_letters:
                         total_count += \
-                        self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][anchor_letter_7]
                         letter_count[j] += \
-                        self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[anchor_letter_1][anchor_letter_2][letter][anchor_letter_4][
+                            anchor_letter_5][anchor_letter_6][anchor_letter_7]
             # case 6: letter blank letter letter letter letter letter
             elif word[i] != '_' and word[i + 1] == '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
                 i + 4] != '_' and word[i + 5] != '_' and word[i + 6] != '_':
@@ -589,14 +589,14 @@ class HangmanAPI(object):
 
                 # calculate occurences of case 6 and for each letter not guessed yet
                 for j, letter in enumerate(self.letter_list):
-                    if self.sevengram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                    if self.sevengram[anchor_letter_1][letter][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6][anchor_letter_7] > 0 and letter not in self.guessed_letters:
                         total_count += \
-                        self.sevengram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[anchor_letter_1][letter][anchor_letter_3][anchor_letter_4][
+                                anchor_letter_5][anchor_letter_6][anchor_letter_7]
                         letter_count[j] += \
-                        self.sevengram[anchor_letter_1][letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[anchor_letter_1][letter][anchor_letter_3][anchor_letter_4][
+                                anchor_letter_5][anchor_letter_6][anchor_letter_7]
 
             # case 7: blank letter letter letter letter letter letter
             elif word[i] == '_' and word[i + 1] != '_' and word[i + 2] != '_' and word[i + 3] != '_' and word[
@@ -611,14 +611,14 @@ class HangmanAPI(object):
 
                 # calculate occurences of case 7 and for each letter not guessed yet
                 for j, letter in enumerate(self.letter_list):
-                    if self.sevengram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                        anchor_letter_5][anchor_letter_6] > 0 and letter not in self.guessed_letters:
+                    if self.sevengram[letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                        anchor_letter_5][anchor_letter_6][anchor_letter_7] > 0 and letter not in self.guessed_letters:
                         total_count += \
-                        self.sevengram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                                anchor_letter_5][anchor_letter_6][anchor_letter_7]
                         letter_count[j] += \
-                        self.sevengram[letter][anchor_letter_1][anchor_letter_2][anchor_letter_3][anchor_letter_4][
-                            anchor_letter_5][anchor_letter_6]
+                        self.sevengram[letter][anchor_letter_2][anchor_letter_3][anchor_letter_4][
+                                anchor_letter_5][anchor_letter_6][anchor_letter_7]
 
         # calculate the probabilities of each letter appearing
         if total_count > 0:
