@@ -3,9 +3,9 @@ import random
 from Hangman import HangmanAPI
 import numpy as np
 
-iterations = 2
-games_per_iteration = 4
-removal_percent = 0.6
+iterations = 5
+games_per_iteration = 50
+removal_percent = 1.0
 
 def remove_char_from_word(word, char_set):
     for char in char_set:
@@ -23,7 +23,12 @@ if __name__ == "__main__":
     for j in range(iterations):
         chosen_words_for_iter = []
         for i in range(games_per_iteration):
+
+            # Don't pick the word if >4 unique letters
             chosen_word = random.choice(full_dictionary)
+            while len(set(list(chosen_word))) > 4:
+                chosen_word = random.choice(full_dictionary)
+
             chosen_words_for_iter.append(chosen_word)
             full_dictionary.remove(chosen_word)
         chosen_words_list.append(chosen_words_for_iter)
